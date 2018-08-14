@@ -25,8 +25,14 @@ SC_MODULE(Neuron)
 		sc_uint<DATA_WIDTH> status;
 		
 	SC_CTOR(Neuron):
+		clk_p("clk_p"),
+		reset_p("reset_p"),
+		enable_p("enable_p"),
+		valid_p("valid_p"),
+		status_p("status_p"),
 		activation_p("activation_p", NUM_OF_OUTPUT_NEURONS),
-		weight_p("weight_p", NUM_OF_OUTPUT_NEURONS)
+		weight_p("weight_p", NUM_OF_OUTPUT_NEURONS),
+		pixel_fifo_p("pixel_fifo_p")
 	{
 		status = 0;
 		for (int i=0; i<NUM_OF_OUTPUT_NEURONS; i++)
@@ -34,7 +40,7 @@ SC_MODULE(Neuron)
 			activation[i] = 0;
 		}
 		SC_THREAD(reset);
-		SC_THREAD(MAC); // multiply and accumulate
+		SC_THREAD(MAC);
 	}
 	
 	void reset(void);

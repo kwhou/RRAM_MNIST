@@ -19,4 +19,4 @@ run:
 	./test.exe
 
 clean:
-	rm ./*.o ./test.exe ./*.vcd ./*.log*
+	rm *.o test.exe *.vcd *.fsdb

@@ -4,12 +4,14 @@
 void Sender::test_script(void)
 {
 	sc_lv<DATA_WIDTH> dout;
+	ifstream f;
 	
 	cs.write(true);
 	io.write(high_impedance);
 	
+	/*
 	// Write Enable
-	cout << name() << ": Write Enable Instruction" << endl;
+	cout << sc_time_stamp() << " " << name() << ": Write Enable Instruction" << endl;
 	wait(clk.negedge_event());
 	cs.write(false);
 	io.write(INS_WRITE_ENABLE);
@@ -17,8 +19,50 @@ void Sender::test_script(void)
 	cs.write(true);
 	io.write(high_impedance);
 	
+	// Page Write
+	cout << sc_time_stamp() << " " << name() << ": Page Write Instruction" << endl;
+	wait(clk.negedge_event());
+	cs.write(false);
+	io.write(INS_PAGE_WRITE);
+	wait(clk.negedge_event());
+	io.write("00000000000000000000000000000000"); //Address
+	f.open("weights.txt");
+	if (f == NULL) {
+		cout << "Weight file does not exist." << endl;
+		return;
+	}
+	float weight_float;
+	for(int i=0; i<64; i++)
+	{
+		wait(clk.negedge_event());
+		f >> weight_float;
+		long *weight_pointer = (long *)&weight_float;
+		sc_uint<DATA_WIDTH> weight_sc_uint = *weight_pointer;
+		sc_lv<DATA_WIDTH> weight_sc_lv = weight_sc_uint;
+		io.write(weight_sc_lv);
+	}
+	wait(clk.negedge_event());
+	cs.write(true);
+	io.write(high_impedance);
+	
+	// Read Status Register
+	cout << sc_time_stamp() << " " << name() << ": Read Status Instruction" << endl;
+	wait(clk.negedge_event());
+	cs.write(false);
+	io.write(INS_READ_STATUS_REG);
+	wait(clk.negedge_event());
+	cout << sc_time_stamp() << " " << name() << ": Waiting for BUSY bit to go low" << endl;
+	do {
+		wait(clk.posedge_event());
+		dout = io.read();
+	} while (dout[0] != SC_LOGIC_0);
+	wait(clk.negedge_event());
+	cs.write(true);
+	*/
+	
+	
 	// Weight Write
-	cout << name() << ": Weight Write Instruction" << endl;
+	cout << sc_time_stamp() << " " << name() << ": Weight Write Instruction" << endl;
 	wait(clk.negedge_event());
 	cs.write(false);
 	io.write(INS_WEIGHT_WRITE); 
@@ -26,122 +70,115 @@ void Sender::test_script(void)
 	cs.write(true);
 	io.write(high_impedance);
 	
-	/*
-	// Read Status Register
-	cout << name() << ": Read Status Instruction" << endl;
-	wait(clk.negedge_event());
-	cs.write(false);
-	io.write(INS_READ_STATUS_REG);
-	wait(SC_ZERO_TIME);
-	dout = io.read();
-	while (dout[0] != SC_LOGIC_0)
-	{
-		cout << name() << ": Waiting for BUSY bit to go low" << endl;
-		wait(clk.negedge_event());
-		wait(SC_ZERO_TIME);
-		dout = io.read();
-	}
-	cout << "Weights have been written at time " << sc_time_stamp()  << endl;
-	wait(clk.negedge_event());
-	cs.write(true);
-	*/
-	// Page Read
+	
+	// Read
+	cout << sc_time_stamp() << " " << name() << ": Read Instruction" << endl;
 	wait(clk.negedge_event());
 	cs.write(false);
 	io.write(INS_READ);
 	wait(clk.negedge_event());
-	io.write("00000000000000000000000000000000"); // Address
-	for(int i=0; i<10; i++)
+	io.write("00000000000000000000000000000000"); //Address
+	wait(clk.negedge_event());
+	for(int i=0; i<NUM_OF_INPUT_PIXELS*NUM_OF_OUTPUT_NEURONS; i++)
 	{
 		wait(clk.posedge_event());
 		dout = io.read();
-		// cout << "Weight read as in bit format " << dout << endl;
-		sc_int<DATA_WIDTH> weight_sc_int = dout;
-		long weight_int = weight_sc_int;
-		float *weight_p = (float *)&weight_int;
-		float weight_float = *weight_p;
-		// cout << "Weight " << i+1 << " read as " << weight_float << " at time " << sc_time_stamp() << endl;  
+		sc_uint<DATA_WIDTH> dout_sc_uint = dout;
+		long dout_long = dout_sc_uint;
+		float *dout_p = (float *)&dout_long;
+		float dout_float = *dout_p;
+		// cout << dout_float << endl;
 	}
 	wait(clk.negedge_event());
 	cs.write(true);
 	
-	/*
+	
+	// Inference
+	cout << sc_time_stamp() << " " << name() << ": Start MNIST testing ..." << endl;
 	f.open("pixels.txt");
 	int num_images = 0;
 	float accuracy = 0;
-	f >> num_images;
+	f >> num_images; num_images = 10;
 	time_t t1 = time(0);
-	for(int i=0;i<num_images;i++)
+	for(int k=0; k<num_images; k++)
 	{
-		cout << "\n Writing pixel values for image " << i+1 << " at time " << sc_simulation_time()/1000.0/1000.0 << "\n"  << endl;
-		wait(clk.posedge_event());
-		wait(5,SC_NS);
-		cs.write(false);
-		wait(clk.posedge_event());
-		ins = "00000000000000000000000000000110";
-		io.write(ins);
-		wait(clk.posedge_event());
-		io.write(high_impedance);
-		wait(5,SC_NS);
-		cs.write(true);
-		wait(clk.posedge_event());
-		wait(5,SC_NS);
-		cs.write(false);
-		wait(clk.posedge_event());
-		ins = "00000000000000000000000000010100";
-		io.write(ins);
-		for(int j=0;j<NUM_OF_INPUT_PIXELS;j++)
-		{
-			float pix_float = 0.0;
-			f >> pix_float;
-			long *pix_pointer = (long *)&pix_float;
-			sc_int<DATA_WIDTH> pix_sc_int = *pix_pointer;
-			sc_lv<DATA_WIDTH> pix  = pix_sc_int;
-			wait(clk.posedge_event());
-			io.write(pix);
-		}
-		wait(clk.posedge_event());
-		io.write("ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ");
-		wait(5,SC_NS);
-		cs.write(true);
-		wait(clk.posedge_event());
-		wait(5,SC_NS);
-		cs.write(false);
-		wait(clk.posedge_event());
-		ins = "00000000000000000000000000010111";
-		io.write(ins);
+		// Inference
+		// cout << sc_time_stamp() << " " << name() << ": Inference Instruction" << endl;
 		wait(clk.negedge_event());
-		wait(SC_ZERO_TIME);
-		sc_lv<DATA_WIDTH> done = io.read();
-		while(done[5]==SC_LOGIC_1)
+		cs.write(false);
+		io.write(INS_INFERENCE);
+		for(int i=0; i<NUM_OF_INPUT_PIXELS; i++)
 		{
 			wait(clk.negedge_event());
-			wait(SC_ZERO_TIME);
-			done = io.read();
+			float pix_float;
+			f >> pix_float;
+			long *pix_pointer = (long *)&pix_float;
+			sc_uint<DATA_WIDTH> pix_sc_uint = *pix_pointer;
+			sc_lv<DATA_WIDTH> pix  = pix_sc_uint;
+			io.write(pix);
 		}
-		int pred = 0;
-		for(int b=0;b<4;b++)
+		wait(clk.negedge_event());
+		cs.write(true);
+		io.write(high_impedance);
+		
+		// Read Status Register
+		// cout << sc_time_stamp() << " " << name() << ": Read Status Instruction" << endl;
+		wait(clk.negedge_event());
+		cs.write(false);
+		io.write(INS_READ_STATUS_REG);
+		wait(clk.negedge_event());
+		// cout << sc_time_stamp() << " " << name() << ": Waiting for BUSY bit to go low" << endl;
+		do {
+			wait(clk.posedge_event());
+			dout = io.read();
+		} while (dout[0] != SC_LOGIC_0);
+		wait(clk.negedge_event());
+		cs.write(true);
+		
+		// Read Neuron Status
+		// cout << sc_time_stamp() << " " << name() << ": Read Neuron Status Instruction" << endl;
+		wait(clk.negedge_event());
+		cs.write(false);
+		io.write(INS_READ_NEURON_STATUS);
+		wait(clk.negedge_event());
+		wait(clk.posedge_event());
+		dout = io.read();
+		sc_uint<DATA_WIDTH> dout_sc_uint = dout;
+		wait(clk.negedge_event());
+		cs.write(true);
+		
+		// Read Neuron Value
+		// cout << sc_time_stamp() << " " << name() << ": Read Neuron Status Instruction" << endl;
+		wait(clk.negedge_event());
+		cs.write(false);
+		io.write(INS_READ_NEURON_VALUE);
+		wait(clk.negedge_event());
+		for(int j=0; j<NUM_OF_OUTPUT_NEURONS; j++)
 		{
-			if (done[b]==SC_LOGIC_1)
-			{
-				pred += (int)pow(2,(int)b);
-			}
+			wait(clk.posedge_event());
+			dout = io.read();
+			sc_uint<DATA_WIDTH> dout_sc_uint = dout;
+			long dout_long = dout_sc_uint;
+			float *dout_p = (float *)&dout_long;
+			float dout_float = *dout_p;
+			cout << "Neuron " << j << ": " << dout_float << endl;
 		}
+		wait(clk.negedge_event());
+		cs.write(true);
+		
+		int pred = dout_sc_uint.range(DATA_WIDTH-1, STS_CLASS);
 		int actual = 0;
 		f >> actual;
-		cout << "Actual class is " << actual << endl;
-		if (actual == pred )
-		{
+		if (actual == pred) {
 			accuracy++;
 		}
-		wait(clk.posedge_event());
-		io.write(high_impedance);
-		wait(5,SC_NS);
-		cs.write(true);
+		// else {
+			cout << "Prediction: " << pred << ", " << "Label: " << actual << endl;
+		// }
 	}
 	time_t t2 = time(0);
-	float num_img = (float)num_images;
-	accuracy = 100.0*accuracy/num_img;
-	cout << "Accuracy calculated for " << num_images << " images is " << accuracy << " after simulation time " << sc_simulation_time()/1000.0/1000.0 << "ms and actual time " << t2-t1  << endl;
-	*/
+	accuracy = 100.0 * accuracy / (float)num_images;
+	cout << "Accuracy = " << accuracy << endl;
+	cout << "Simulation time = " << sc_time_stamp() << endl;
+	cout << "Program execution time = " << t2-t1  << endl;
 }

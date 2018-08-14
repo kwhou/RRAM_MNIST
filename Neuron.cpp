@@ -6,6 +6,7 @@ void Neuron::reset(void) // asynchronous reset
 	{
 		wait(reset_p->negedge_event());
 		
+		wait(clk_p->posedge_event());
 		status = status_p.read();
 		status[STS_RESET] = 1;
 		status_p.write(status);
@@ -15,6 +16,7 @@ void Neuron::reset(void) // asynchronous reset
 			activation[j] = 0;
 		}
 		
+		wait(clk_p->posedge_event());
 		status = status_p.read();
 		status.range(DATA_WIDTH-1, STS_CLASS) = 0;
 		status[STS_RESET] = 0;
@@ -33,6 +35,7 @@ void Neuron::MAC(void)
 	{
 		wait(enable_p->negedge_event());
 		
+		wait(clk_p->posedge_event());
 		status = status_p.read();
 		status[STS_MAC] = 1;
 		status_p.write(status);
@@ -41,12 +44,7 @@ void Neuron::MAC(void)
 		{
 			while(true)
 			{
-				wait(clk_p->posedge_event() | enable_p->default_event());
-				if (enable_p->event()) {
-					status[STS_MAC] = 0;
-					status_p.write(status);
-					return;
-				}
+				wait(clk_p->posedge_event());
 				wait(SC_ZERO_TIME);
 				if (valid_p->read()) {
 					break;
@@ -59,13 +57,7 @@ void Neuron::MAC(void)
 			}
 			else
 			{
-				wait(pixel_fifo_p->data_written_event() | enable_p->default_event());
-				if(enable_p->event())
-				{
-					status[STS_MAC] = 0;
-					status_p.write(status);
-					return;
-				}
+				wait(pixel_fifo_p->data_written_event());
 				pixel = pixel_fifo_p->read();
 			}
 			
@@ -94,6 +86,7 @@ void Neuron::MAC(void)
 			}
 		}
 		
+		wait(clk_p->posedge_event());
 		for(int j=0; j<NUM_OF_OUTPUT_NEURONS; j++)
 		{
 			long activation_long = *((long *)&activation[j]);

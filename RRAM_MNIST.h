@@ -40,7 +40,7 @@ SC_MODULE(RRAM_MNIST)
 	sc_event begin_page_erase;
 	sc_event begin_inference;
 	sc_event begin_read_neuron_value;
-	sc_event begin_read_class_register;
+	sc_event begin_read_neuron_status;
 	sc_event begin_read_status_register;
 	sc_event begin_read_weights;
 	
@@ -48,7 +48,7 @@ SC_MODULE(RRAM_MNIST)
 	sc_signal<bool> reset;
 	sc_signal<bool> enable;
 	sc_signal<bool> valid;
-	sc_signal< sc_uint<DATA_WIDTH> > status;
+	sc_signal< sc_uint<DATA_WIDTH>, SC_MANY_WRITERS > status;
 	sc_fifo< sc_uint<DATA_WIDTH> > pixel_fifo;
 	
 	sc_signal< sc_uint<DATA_WIDTH> > activation [NUM_OF_OUTPUT_NEURONS];
@@ -100,7 +100,7 @@ SC_MODULE(RRAM_MNIST)
 		SC_THREAD(read_neuron_value);
 			sensitive << begin_read_neuron_value;
 		SC_THREAD(read_neuron_status);
-			sensitive << begin_read_class_register;
+			sensitive << begin_read_neuron_status;
 		SC_THREAD(read_status_register);
 			sensitive << begin_read_status_register;
 		SC_THREAD(inference);

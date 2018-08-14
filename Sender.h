@@ -16,8 +16,6 @@ SC_MODULE(Sender)
 	sc_out<bool> cs;
 	sc_inout< sc_lv<DATA_WIDTH> > io;
 	
-	ifstream f;
-	
 	sc_lv<DATA_WIDTH> high_impedance;
 	
 	SC_CTOR(Sender):

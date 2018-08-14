@@ -19,9 +19,9 @@ int sc_main(int argc, char* argv[])
 	
 	sc_trace_file* tracefile;
 	tracefile = sc_create_vcd_trace_file("waveform");
-	sc_trace(tracefile,clk, "CLK");
-	sc_trace(tracefile,cs, "CS");
-	sc_trace(tracefile,io, "IO");
+	sc_trace(tracefile, clk, "CLK");
+	sc_trace(tracefile, cs, "CS");
+	sc_trace(tracefile, io, "IO");
 	
 	sc_start();
 	

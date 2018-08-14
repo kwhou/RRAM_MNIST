@@ -9,13 +9,13 @@ void RRAM_MNIST::read_cs(void)
 		cs = cs_p->read();
 		if (!cs_active && cs == false)
 		{
-			// cout << name() << ": cs is active" << endl;
+			// cout << sc_time_stamp() << " " << name() << ": cs is active" << endl;
 			cs_active = true;
 			begin_get_instruction.notify();
 		}
 		else if (cs_active && cs == true)
 		{
-			// cout << name() << ": cs is inactive" << endl;
+			// cout << sc_time_stamp() << " " << name() << ": cs is inactive" << endl;
 			cs_active = false;
 		}
 		wait();
@@ -35,49 +35,49 @@ void RRAM_MNIST::get_instruction()
 		sc_uint<DATA_WIDTH> io_in = io_p->read();
 		instruction = io_in.range(7,0);
 		
-		if (status_register_1[0] != 0) {
-			cout << name() << ": busy ... instruction " << instruction << " ignored" << endl;
+		if (status_register_1[0] != 0 && instruction.to_string(SC_BIN) != INS_READ_STATUS_REG && instruction.to_string(SC_BIN) != INS_READ_NEURON_STATUS) {
+			cout << sc_time_stamp() << " " << name() << ": busy ... instruction " << instruction << " ignored" << endl;
 			continue;
 		}
 		
 		if (instruction.to_string(SC_BIN) == INS_READ) {
-			cout << name() << ": receive READ instruction " << endl;
+			cout << sc_time_stamp() << " " << name() << ": receive READ instruction " << endl;
 			begin_read.notify();
 		}
 		else if (instruction.to_string(SC_BIN) == INS_WRITE_ENABLE) {
-			cout << name() << ": receive WRITE_ENABLE instruction " << endl;
+			cout << sc_time_stamp() << " " << name() << ": receive WRITE_ENABLE instruction " << endl;
 			begin_write_enable.notify();
 		}
 		else if (instruction.to_string(SC_BIN) == INS_PAGE_WRITE) {
-			cout << name() << ": receive PAGE_WRITE instruction " << endl;
+			cout << sc_time_stamp() << " " << name() << ": receive PAGE_WRITE instruction " << endl;
 			begin_page_write.notify();
 		}
 		else if (instruction.to_string(SC_BIN) == INS_WEIGHT_WRITE) {
-			cout << name() << ": receive WEIGHT_WRITE instruction " << endl;
+			cout << sc_time_stamp() << " " << name() << ": receive WEIGHT_WRITE instruction " << endl;
 			begin_weight_write.notify();
 		}
 		else if (instruction.to_string(SC_BIN) == INS_PAGE_ERASE) {
-			cout << name() << ": receive PAGE_ERASE instruction " << endl;
+			cout << sc_time_stamp() << " " << name() << ": receive PAGE_ERASE instruction " << endl;
 			begin_page_erase.notify();
 		}
+		else if (instruction.to_string(SC_BIN) == INS_READ_STATUS_REG) {
+			// cout << sc_time_stamp() << " " << name() << ": receive READ_STATUS_REG instruction " << endl;
+			begin_read_status_register.notify();
+		}
 		else if (instruction.to_string(SC_BIN) == INS_INFERENCE) {
-			cout << name() << ": receive INFERENCE instruction " << endl;
+			// cout << sc_time_stamp() << " " << name() << ": receive INFERENCE instruction " << endl;
 			begin_inference.notify();
 		}
 		else if (instruction.to_string(SC_BIN) == INS_READ_NEURON_VALUE) {
-			cout << name() << ": receive READ_NEURON_VALUE instruction " << endl;
+			// cout << sc_time_stamp() << " " << name() << ": receive READ_NEURON_VALUE instruction " << endl;
 			begin_read_neuron_value.notify();
 		}
-		else if (instruction.to_string(SC_BIN) == INS_READ_CLASS_REG) {
-			cout << name() << ": receive READ_CLASS_REG instruction " << endl;
-			begin_read_class_register.notify();
-		}
-		else if (instruction.to_string(SC_BIN) == INS_READ_STATUS_REG) {
-			cout << name() << ": receive READ_STATUS_REG instruction " << endl;
-			begin_read_status_register.notify();
+		else if (instruction.to_string(SC_BIN) == INS_READ_NEURON_STATUS) {
+			// cout << sc_time_stamp() << " " << name() << ": receive READ_NEURON_STATUS instruction " << endl;
+			begin_read_neuron_status.notify();
 		}
 		else {
-			cout << name() << ": instruction not recognized" << endl;
+			cout << sc_time_stamp() << " " << name() << ": instruction not recognized" << endl;
 		}
 	}
 }
@@ -130,7 +130,7 @@ void RRAM_MNIST::page_read(void)
 			}
 		}
 		wait(clk_p->negedge_event());
-		io_p->write(io_high_impedance);
+		// io_p->write(io_high_impedance);
 	}
 }
 
@@ -152,7 +152,7 @@ void RRAM_MNIST::page_write(void)
 		
 		// Check write enable/disable
 		if (status_register_1[1] != 1) {
-			cout << name() << ": write disable" << endl;
+			cout << sc_time_stamp() << " " << name() << ": write disable" << endl;
 			continue;
 		}
 		
@@ -201,7 +201,7 @@ void RRAM_MNIST::page_erase(void)
 		
 		// Check write enable/disable
 		if (status_register_1[1] != 1) {
-			cout << name() << ": write disable" << endl;
+			cout << sc_time_stamp() << " " << name() << ": write disable" << endl;
 			continue;
 		}
 		
@@ -233,7 +233,6 @@ void RRAM_MNIST::read_status_register(void)
 	while(true)
 	{
 		wait();
-		cout << "Reading status register" << endl; 
 		while (true)
 		{
 			wait(clk_p->negedge_event() | cs_p->default_event());
@@ -256,6 +255,10 @@ void RRAM_MNIST::weight_write(void)
 		wait();
 		
 		f.open("weights.txt");
+		if (f == NULL) {
+			cout << "Weight file does not exist." << endl;
+			continue;
+		}
 		
 		int row = 0;
 		int col = 0;
@@ -344,10 +347,7 @@ void RRAM_MNIST::inference(void)
 		begin_read_weights.notify();
 		for(int i=0; i < NUM_OF_INPUT_PIXELS; i++)
 		{
-			wait(clk_p->posedge_event() | cs_p->default_event());
-			if (cs_p->event()) {
-				break;
-			}
+			wait(clk_p->posedge_event());
 			sc_uint<DATA_WIDTH> io_in = io_p->read();
 			pixel = io_in;
 			pixel_fifo.write(pixel);
@@ -361,31 +361,23 @@ void RRAM_MNIST::read_weights(void)
 	{
 		wait();
 		
-		wait(clk_p->posedge_event() | cs_p->default_event());
-		if (cs_p->event()) {
-			continue;
-		}
-		
+		// Reset Neuron
+		wait(clk_p->posedge_event());
 		reset.write(false);
-		
-		wait(clk_p->posedge_event() | cs_p->default_event());
-		if (cs_p->event()) {
-			continue;
+		while(true)
+		{
+			wait(clk_p->posedge_event());
+			sc_uint<DATA_WIDTH> status_uint = status.read();
+			if (!status_uint[STS_RESET]) {
+				break;
+			}
 		}
-		
 		reset.write(true);
 		
-		wait(clk_p->posedge_event() | cs_p->default_event());
-		if (cs_p->event()) {
-			continue;
-		}
-		
+		// Start MAC
+		wait(clk_p->posedge_event());
 		enable.write(false);
-		
-		wait(clk_p->posedge_event() | cs_p->default_event());
-		if (cs_p->event()) {
-			continue;
-		}
+		wait(clk_p->posedge_event());
 		
 		int row = 0;
 		int col = 0;
@@ -411,10 +403,7 @@ void RRAM_MNIST::read_weights(void)
 			row++;
 			col = beg;
 			
-			wait(clk_p->posedge_event() | cs_p->default_event());
-			if (cs_p->event()) {
-				break;
-			}
+			wait(clk_p->posedge_event());
 			valid.write(true);
 			wait(clk_p->posedge_event());
 			valid.write(false);
@@ -427,6 +416,7 @@ void RRAM_MNIST::read_weights(void)
 			}
 		}
 		
+		wait(clk_p->posedge_event());
 		status_register_1[0] = 0;
 		status_register_1[1] = 0;
 		enable.write(true);
